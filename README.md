@@ -1,7 +1,5 @@
 # F1 Velocity Analytics
 
-![F1 Velocity Analytics Logo](https://via.placeholder.com/150/FF1801/FFFFFF?text=F1+VA)
-*(Placeholder Logo - You can replace this with an actual logo)*
 
 ## Project Overview
 
