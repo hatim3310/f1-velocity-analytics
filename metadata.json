@@ -1,0 +1,5 @@
+{
+  "name": "F1 Velocity Analytics",
+  "description": "Advanced Formula 1 race analytics dashboard featuring historical 2024 data visualization with D3.js and AI-powered race strategy insights using Gemini.",
+  "requestFramePermissions": []
+}
