@@ -1,84 +1,93 @@
 # F1 Velocity Analytics
 
+## Pour les Passionnés de Formule 1
 
-## Project Overview
+Vous êtes fan de F1 et vous voulez plonger dans les données de la saison ? F1 Velocity Analytics est l'application web ultime pour analyser en profondeur les courses de Formule 1. Que vous souhaitiez revivre les courses de 2024, analyser les stratégies des pilotes ou comprendre les performances lap par lap, cette plateforme est faite pour vous.
 
-F1 Velocity Analytics is a dynamic web application designed to provide in-depth analysis of Formula 1 race data. Built with React, TypeScript, and Tailwind CSS, this platform offers a sleek, responsive interface for F1 enthusiasts to explore driver performance, race strategies, and even gain AI-powered insights into Grand Prix events.
+## Ce que vous pouvez faire
 
-Leveraging the OpenF1 API for real-time data and integrated with the Gemini API for advanced analytics, the application visualizes lap-by-lap telemetry, position changes, and allows users to query an AI race engineer for strategic summaries and race outcome analysis.
+### 📊 Données de la Saison 2024 (Disponible)
+Explorez toutes les courses de l'année dernière avec :
+- **Analyses détaillées lap par lap** pour chaque Grand Prix
+- **Évolution des positions** pendant toute la course
+- **Comparaison des rythmes** entre pilotes
+- **Ingénieur de course IA** (propulsé par Gemini 2.5) pour répondre à vos questions sur les stratégies, la dégradation des pneus, les dépassements et plus encore
 
-## Features
+### 🔴 Données Live (EN COURS DE DÉVELOPPEMENT)
+Bientôt, vous pourrez suivre les courses en temps réel pendant qu'elles se déroulent ! Cette fonctionnalité est actuellement en développement et vous permettra de :
+- Suivre les positions en direct
+- Analyser les stratégies pendant la course
+- Recevoir des insights IA en temps réel
 
-*   **2024 F1 Driver Grid:** View the current season's driver lineup with custom headshots and team logos.
-*   **Race Calendar & Analysis:** Explore past races, including detailed lap-by-lap data for positions and pace.
-*   **Interactive Charts:** Visualize position changes and lap pace for all drivers during a race.
-*   **AI Race Engineer (Powered by Gemini 2.5):** Ask intelligent questions about race strategy, tyre degradation, overtake analysis, and more, receiving detailed insights.
-*   **Responsive Design:** Optimized for seamless viewing and interaction across various devices (mobile, tablet, desktop).
-*   **Customizable Assets:** Easily update driver headshots and team logos with local images.
+Construite avec React, TypeScript et Tailwind CSS, l'application utilise l'API OpenF1 pour les données en temps réel et l'API Gemini pour des analyses avancées.
 
-## Technologies Used
+## Fonctionnalités Détaillées
 
-*   **Frontend:** React (with Vite for fast development), TypeScript
-*   **Styling:** Tailwind CSS
-*   **Data API:** OpenF1 API
-*   **AI Integration:** Gemini API
-*   **Charting:** Custom React components built with charting libraries (e.g., Recharts, Chart.js - *actual library depends on implementation, update if known*)
-*   **Build Tool:** Vite
+*   **Grille de pilotes F1 2024 :** Consultez tous les pilotes de la saison avec leurs photos et logos d'équipe personnalisés
+*   **Calendrier et analyses de courses :** Explorez les courses passées de 2024 avec données détaillées lap par lap pour les positions et le rythme
+*   **Graphiques interactifs :** Visualisez les changements de position et le rythme de tous les pilotes pendant une course
+*   **Ingénieur de course IA (Gemini 2.5) :** Posez des questions intelligentes sur la stratégie de course, la dégradation des pneus, les analyses de dépassement et bien plus encore
+*   **Design responsive :** Interface optimisée pour tous les appareils (mobile, tablette, desktop)
+*   **Assets personnalisables :** Mettez à jour facilement les photos des pilotes et logos d'équipe
 
-## Setup and Installation
+## Technologies Utilisées
 
-To get this project up and running on your local machine, follow these steps:
+*   **Frontend :** React (avec Vite pour un développement rapide), TypeScript
+*   **Styling :** Tailwind CSS
+*   **API de données :** OpenF1 API (données historiques 2024 + live en développement)
+*   **Intégration IA :** Gemini API
+*   **Graphiques :** Composants React personnalisés avec bibliothèques de graphiques
+*   **Build Tool :** Vite
 
-### Prerequisites
+## Installation
 
-*   Node.js (LTS version recommended)
-*   npm or Yarn (npm is used in these instructions)
+Pour lancer le projet sur votre machine locale :
 
-### Installation Steps
+### Prérequis
 
-1.  **Clone the repository:**
+*   Node.js (version LTS recommandée)
+*   npm ou Yarn
+
+### Étapes d'installation
+
+1.  **Cloner le repository :**
     ```bash
     git clone https://github.com/your-username/f1-velocity-analytics.git
     cd f1-velocity-analytics
     ```
-    *(Replace `https://github.com/your-username/f1-velocity-analytics.git` with your actual repository URL)*
 
-2.  **Install dependencies:**
+2.  **Installer les dépendances :**
     ```bash
     npm install
-    # or
-    # yarn install
     ```
 
-3.  **Environment Variables:**
-    Create a `.env.local` file in the project root and add your Gemini API key:
+3.  **Variables d'environnement :**
+    Créez un fichier `.env.local` à la racine du projet et ajoutez votre clé API Gemini :
     ```
     VITE_GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
     ```
-    *(Obtain your API key from [Google AI Studio](https://aistudio.google.com/))*
+    *(Obtenez votre clé API sur [Google AI Studio](https://aistudio.google.com/))*
 
-4.  **Run the development server:**
+4.  **Lancer le serveur de développement :**
     ```bash
     npm run dev
-    # or
-    # yarn dev
     ```
-    The application will typically open in your browser at `http://localhost:5173` (or another port if 5173 is in use).
+    L'application s'ouvrira dans votre navigateur à `http://localhost:5173`
 
-## Usage Guide
+## Guide d'Utilisation
 
-### Navigating the App
+### Navigation dans l'Application
 
-*   **Dashboard:** The main landing page provides an overview of the F1 season.
-*   **Drivers View:** Browse detailed profiles of all 2024 F1 drivers.
-*   **Race Analysis:** Select a completed race from the calendar to dive into its analytics.
+*   **Dashboard :** Page d'accueil avec un aperçu de la saison F1
+*   **Vue Pilotes :** Parcourez les profils détaillés de tous les pilotes F1 2024
+*   **Analyse de Course :** Sélectionnez une course terminée dans le calendrier pour plonger dans ses analyses
 
-### Race Analysis Features
+### Fonctionnalités d'Analyse de Course
 
-Within the "Race Analysis" page, you can switch between tabs:
-*   **Positions:** View a chart showing driver position changes throughout the race.
-*   **Pace:** Analyze lap times and compare driver pace.
-*   **AI Strategy:** Engage with the Gemini-powered AI Race Engineer. Type your questions or select from suggested queries to get insights into race strategy, tyre management, and more.
+Dans la page "Analyse de Course", vous pouvez naviguer entre les onglets :
+*   **Positions :** Graphique montrant l'évolution des positions des pilotes tout au long de la course
+*   **Pace :** Analysez les temps au tour et comparez le rythme des pilotes
+*   **Stratégie IA :** Interagissez avec l'ingénieur de course IA propulsé par Gemini. Posez vos questions ou sélectionnez parmi les suggestions pour obtenir des insights sur la stratégie de course, la gestion des pneus et plus encore
 
 ## Asset Management
 
