@@ -1,4 +1,4 @@
-import { Race, Driver, LapData } from '../types';
+import { Race, Driver, LapData, OpenF1Session, OpenF1Driver, OpenF1Lap } from '../types';
 import { TEAMS, TEAM_ASSETS, DRIVER_DETAILS_MAP } from '../constants';
 
 const BASE_URL = 'https://api.openf1.org/v1';
@@ -9,7 +9,7 @@ async function fetchWithCache<T>(url: string): Promise<T> {
   if (cache.has(url)) {
     return cache.get(url) as T;
   }
-  
+
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
@@ -22,20 +22,78 @@ async function fetchWithCache<T>(url: string): Promise<T> {
   }
 }
 
-export const get2024Calendar = async (): Promise<Race[]> => {
-  const url = `${BASE_URL}/sessions?year=2024&session_type=Race`;
+// Map Locations to F1 Website Image Slugs
+const CIRCUIT_SLUGS: Record<string, string> = {
+  'Sakhir': 'Bahrain',
+  'Jeddah': 'Saudi_Arabia',
+  'Melbourne': 'Australia',
+  'Suzuka': 'Japan',
+  'Shanghai': 'China',
+  'Miami': 'Miami',
+  'Imola': 'Emilia_Romagna',
+  'Monte Carlo': 'Monaco',
+  'Montréal': 'Canada',
+  'Montreal': 'Canada',
+  'Barcelona': 'Spain',
+  'Spielberg': 'Austria',
+  'Silverstone': 'Great_Britain',
+  'Budapest': 'Hungary',
+  'Spa-Francorchamps': 'Belgium',
+  'Zandvoort': 'Netherlands',
+  'Monza': 'Italy',
+  'Baku': 'Baku',
+  'Marina Bay': 'Singapore',
+  'Singapore': 'Singapore',
+  'Austin': 'USA',
+  'Mexico City': 'Mexico',
+  'São Paulo': 'Brazil',
+  'Interlagos': 'Brazil',
+  'Las Vegas': 'Las_Vegas',
+  'Lusail': 'Qatar',
+  'Yas Island': 'Abu_Dhabi',
+  'Yas Marina': 'Abu_Dhabi',
+};
+
+const getCircuitImage = (location: string, circuitShortName: string): string => {
+  // Try to match by location first, then circuit name
+  const slug = CIRCUIT_SLUGS[location] || CIRCUIT_SLUGS[circuitShortName] || location.replace(/\s+/g, '_');
+  return `https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/${slug}_Circuit.png.transform/8col/image.png`;
+};
+
+export const getCalendar = async (): Promise<Race[]> => {
+  const today = new Date();
+  let targetYear = today.getFullYear();
+
+  // If we are in Dec, we still want to see the current season results/summary, not the empty next season.
+  // if (today.getMonth() >= 11) {
+  //    targetYear += 1;
+  // }
+
+  const url = `${BASE_URL}/sessions?year=${targetYear}&session_type=Race`;
+
   try {
-    const sessions = await fetchWithCache<any[]>(url);
+    let sessions = await fetchWithCache<OpenF1Session[]>(url);
+
+    // Fallback if target year has no data
+    if (!sessions || sessions.length === 0) {
+      console.warn(`No sessions found for ${targetYear}, falling back to ${targetYear - 1}`);
+      const fallbackUrl = `${BASE_URL}/sessions?year=${targetYear - 1}&session_type=Race`;
+      sessions = await fetchWithCache<OpenF1Session[]>(fallbackUrl);
+    }
+
+    // Filter duplicates (some sprints might be labeled weirdly, but usually query handles it)
+    // OpenF1 sometimes returns Sprints even if filtered by Race? No, usually distinct.
+
     return sessions
       .sort((a, b) => new Date(a.date_start).getTime() - new Date(b.date_start).getTime())
-      .map((session, index) => ({
+      .map((session) => ({
         id: session.session_key.toString(),
         name: session.meeting_name || session.location + ' Grand Prix',
         date: session.date_start.split('T')[0],
         circuit: session.circuit_short_name || session.location,
-        laps: 0, 
+        laps: 0,
         winnerId: 'TBD',
-        image: `https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/${session.circuit_short_name?.replace(/\s+/g, '_') || 'Bahrain'}_Circuit.png.transform/8col/image.png`, 
+        image: getCircuitImage(session.location, session.circuit_short_name),
         status: new Date(session.date_start) < new Date() ? 'COMPLETED' : 'UPCOMING'
       }));
   } catch (e) {
@@ -44,48 +102,49 @@ export const get2024Calendar = async (): Promise<Race[]> => {
   }
 };
 
+// Deprecated alias removed.
+// export const get2024Calendar = getCalendar;
+
 export const getSeasonDrivers = async (): Promise<Driver[]> => {
   try {
-     // Use a recent session key to get the grid (Bahrain 2024 key approx or just use the latest logic)
-     // 9472 is roughly Bahrain 2024. 
-     // However, to be robust, we will just fetch the latest available race from the calendar
-     const races = await get2024Calendar();
-     const lastRace = races.filter(r => r.status === 'COMPLETED').pop();
-     
-     if (!lastRace) return [];
+    // Use a recent session key to get the grid
+    const races = await getCalendar();
+    const lastRace = races.filter(r => r.status === 'COMPLETED').pop();
 
-     const driversUrl = `${BASE_URL}/drivers?session_key=${lastRace.id}`;
-     const driversData = await fetchWithCache<any[]>(driversUrl);
-     
-     const uniqueDrivers = new Map();
-     
-     driversData.forEach((d: any) => {
-         if(!uniqueDrivers.has(d.driver_number)) {
-             const driverNumber = d.driver_number.toString();
-             // Merge API data with our High Quality Local Assets
-             const stats = DRIVER_DETAILS_MAP[driverNumber] || { points: 0, podiums: 0, image: d.headshot_url };
-             const teamName = d.team_name;
-             // Find best match for team name in our assets
-             const teamKey = Object.keys(TEAM_ASSETS).find(k => teamName.includes(k)) || 'Red Bull Racing';
-             const assets = TEAM_ASSETS[teamKey] || TEAM_ASSETS['Red Bull Racing'];
-             const teamColor = '#' + (d.team_colour || TEAMS[teamKey]?.replace('#','') || 'ffffff');
+    if (!lastRace) return [];
 
-             uniqueDrivers.set(d.driver_number, {
-                id: driverNumber,
-                code: d.name_acronym,
-                name: d.full_name,
-                team: teamName,
-                color: teamColor,
-                headshot: stats.image, // Use HD image from constants if available
-                teamLogo: assets.logo,
-                carImage: assets.car,
-                points: stats.points,
-                podiums: stats.podiums
-             });
-         }
-     });
-     
-     return Array.from(uniqueDrivers.values());
+    const driversUrl = `${BASE_URL}/drivers?session_key=${lastRace.id}`;
+    const driversData = await fetchWithCache<OpenF1Driver[]>(driversUrl);
+
+    const uniqueDrivers = new Map();
+
+    driversData.forEach((d) => {
+      if (!uniqueDrivers.has(d.driver_number)) {
+        const driverNumber = d.driver_number.toString();
+        // Merge API data with our High Quality Local Assets
+        const stats = DRIVER_DETAILS_MAP[driverNumber] || { points: 0, podiums: 0, image: d.headshot_url };
+        const teamName = d.team_name;
+        // Find best match for team name in our assets
+        const teamKey = Object.keys(TEAM_ASSETS).find(k => teamName.includes(k)) || 'Red Bull Racing';
+        const assets = TEAM_ASSETS[teamKey] || TEAM_ASSETS['Red Bull Racing'];
+        const teamColor = '#' + (d.team_colour || TEAMS[teamKey]?.replace('#', '') || 'ffffff');
+
+        uniqueDrivers.set(d.driver_number, {
+          id: driverNumber,
+          code: d.name_acronym,
+          name: d.full_name,
+          team: teamName,
+          color: teamColor,
+          headshot: stats.image, // Use HD image from constants if available
+          teamLogo: assets.logo,
+          carImage: assets.car,
+          points: stats.points,
+          podiums: stats.podiums
+        });
+      }
+    });
+
+    return Array.from(uniqueDrivers.values());
 
   } catch (e) {
     console.error("Error fetching season drivers", e);
@@ -95,31 +154,31 @@ export const getSeasonDrivers = async (): Promise<Driver[]> => {
 
 export const getRaceDetails = async (sessionKey: string) => {
   const driversUrl = `${BASE_URL}/drivers?session_key=${sessionKey}`;
-  const driversData = await fetchWithCache<any[]>(driversUrl);
-  
-  const drivers: Driver[] = driversData.map((d: any) => ({
+  const driversData = await fetchWithCache<OpenF1Driver[]>(driversUrl);
+
+  const drivers: Driver[] = driversData.map((d) => ({
     id: d.driver_number.toString(),
     code: d.name_acronym,
     name: d.full_name,
     team: d.team_name,
-    color: '#' + (d.team_colour || TEAMS[d.team_name]?.replace('#','') || 'ffffff'),
+    color: '#' + (d.team_colour || TEAMS[d.team_name]?.replace('#', '') || 'ffffff'),
     headshot: d.headshot_url
   }));
 
   const lapsUrl = `${BASE_URL}/laps?session_key=${sessionKey}`;
-  const lapsData = await fetchWithCache<any[]>(lapsUrl);
+  const lapsData = await fetchWithCache<OpenF1Lap[]>(lapsUrl);
 
   const history: LapData[] = lapsData
-    .filter((l: any) => l.lap_duration !== null)
-    .map((l: any) => ({
+    .filter((l) => l.lap_duration !== null)
+    .map((l) => ({
       lap: l.lap_number,
       driverId: l.driver_number.toString(),
-      position: 0, 
-      time: l.lap_duration,
-      tyre: 'S' 
+      position: 0,
+      time: l.lap_duration as number,
+      tyre: 'S'
     }));
 
-  const lapsMap = new Map<number, any[]>();
+  const lapsMap = new Map<number, LapData[]>();
   history.forEach(h => {
     if (!lapsMap.has(h.lap)) lapsMap.set(h.lap, []);
     lapsMap.get(h.lap)?.push(h);

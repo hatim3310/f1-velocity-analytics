@@ -89,30 +89,29 @@ Dans la page "Analyse de Course", vous pouvez naviguer entre les onglets :
 *   **Pace :** Analysez les temps au tour et comparez le rythme des pilotes
 *   **Stratégie IA :** Interagissez avec l'ingénieur de course IA propulsé par Gemini. Posez vos questions ou sélectionnez parmi les suggestions pour obtenir des insights sur la stratégie de course, la gestion des pneus et plus encore
 
-## Asset Management
+## Gestion des Assets
 
-The application allows for easy customization of driver headshots and team logos using local image files.
+L'application permet une personnalisation facile des photos de pilotes et logos d'équipe avec des fichiers locaux.
 
-### Driver Headshots
+### Photos de Pilotes
 
-1.  **Place images:** Put your driver image files (ee.g., `.png`, `.jpg`, `.webp`) into the `public/images/drivers/` directory.
-2.  **Naming Convention:** Refer to the `DRIVERS_2024.md` file in the project root for the expected filenames for each driver.
-    *(Example: `public/images/drivers/verstappen.png` for Max Verstappen)*
+1.  **Placer les images :** Mettez vos fichiers images (`.png`, `.jpg`, `.webp`) dans le répertoire `public/images/drivers/`
+2.  **Convention de nommage :** Consultez le fichier `DRIVERS_2024.md` à la racine du projet pour les noms de fichiers attendus
+    *(Exemple : `public/images/drivers/verstappen.png` pour Max Verstappen)*
 
-### Team Logos
+### Logos d'Équipe
 
-1.  **Place images:** Put your team logo files (ee.g., `.png`, `.jpg`, `.webp`) into the `public/images/teams/` directory.
-2.  **Naming Convention:** The application expects filenames based on the team's full name, converted to lowercase with hyphens (e.g., `red-bull-racing.png` for Red Bull Racing). For the exact list of expected names, you can inspect the `TEAM_LOGOS` object in `driverAssets.ts`.
+1.  **Placer les images :** Mettez vos logos d'équipe dans le répertoire `public/images/teams/`
+2.  **Convention de nommage :** L'application attend des noms de fichiers basés sur le nom complet de l'équipe, en minuscules avec tirets (ex: `red-bull-racing.png` pour Red Bull Racing)
 
-## Contributing
+## Contribution
 
-We welcome contributions! If you'd like to improve this project, please follow these steps:
-1.  Fork the repository.
-2.  Create a new branch for your feature or bug fix.
-3.  Commit your changes following conventional commit messages.
-4.  Push your branch and open a pull request.
+Les contributions sont les bienvenues ! Si vous souhaitez améliorer ce projet :
+1.  Forkez le repository
+2.  Créez une nouvelle branche pour votre fonctionnalité ou correction
+3.  Committez vos changements avec des messages conventionnels
+4.  Poussez votre branche et ouvrez une pull request
 
-## License
+## Licence
 
-This project is open-source and available under the [MIT License](LICENSE).
-*(Create a `LICENSE` file in your project root with the full MIT License text)*
+Ce projet est open-source et disponible sous la [MIT License](LICENSE).
