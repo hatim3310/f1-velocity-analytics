@@ -30,12 +30,14 @@ const LapPaceChart: React.FC<Props> = ({ data }) => {
 
     // Filter extremely slow laps (pit stops / safety car) for better visualization scale
     // Calculate median to find outliers
-    const allTimes = data.history.map(d => d.time).sort(d3.ascending);
+    const allTimes = data.history.filter(d => d.time > 0 && !d.pitOut).map(d => d.time).sort(d3.ascending);
+    if (!allTimes.length) return;
     const median = d3.median(allTimes) || 90;
     const cutoff = median * 1.15; // Cutoff at 115% of median pace
-    
-    const validLaps = data.history.filter(d => d.time < cutoff && d.time > median * 0.8); 
-    
+
+    const validLaps = data.history.filter(d => d.time > 0 && !d.pitOut && d.time < cutoff && d.time > median * 0.8);
+    if (!validLaps.length) return;
+
     const minTime = d3.min(validLaps, d => d.time) || median - 5;
     const maxTime = d3.max(validLaps, d => d.time) || median + 5;
 
@@ -44,7 +46,7 @@ const LapPaceChart: React.FC<Props> = ({ data }) => {
       .range([0, innerWidth]);
 
     const y = d3.scaleLinear()
-      .domain([minTime, maxTime])
+      .domain([minTime === maxTime ? minTime - 1 : minTime, minTime === maxTime ? maxTime + 1 : maxTime])
       .range([innerHeight, 0]);
 
     const xAxis = d3.axisBottom(x).ticks(10);
@@ -94,7 +96,7 @@ const LapPaceChart: React.FC<Props> = ({ data }) => {
 
     // Data Points
     const driversMap = new Map<string, Driver>(data.drivers.map(d => [d.id, d]));
-    
+
     // Add glow filter
     const defs = svg.append("defs");
     const filter = defs.append("filter")
@@ -139,7 +141,7 @@ const LapPaceChart: React.FC<Props> = ({ data }) => {
   }, [data]);
 
   return (
-    <div ref={containerRef} className="w-full glass-card rounded-3xl p-4 shadow-2xl mt-6">
+    <div ref={containerRef} className="w-full bg-[#12151c] border border-[#232832] rounded-2xl p-4 shadow-xl mt-6">
       <svg ref={svgRef} className="w-full h-[500px]"></svg>
     </div>
   );

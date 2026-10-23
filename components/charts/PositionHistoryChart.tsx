@@ -28,22 +28,20 @@ const PositionHistoryChart: React.FC<Props> = ({ data }) => {
       .classed("w-full h-full", true);
 
     // Gradient Definitions
-    const defs = svg.append("defs");
-    
     const g = svg.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Determine domains
-    const maxLaps = d3.max(data.history, d => d.lap) || 60;
+    const maxLaps = d3.max(data.history, d => d.lap) || 1;
     const driversInRace = Array.from(new Set(data.history.map(d => d.driverId)));
     // We only want to show lines for drivers who have meaningful data
-    
+
     const x = d3.scaleLinear()
-      .domain([1, maxLaps])
+      .domain([1, Math.max(2, maxLaps)])
       .range([0, innerWidth]);
 
     const y = d3.scaleLinear()
-      .domain([1, Math.min(20, driversInRace.length)]) // Top 20 max
+      .domain([1, Math.max(2, driversInRace.length)])
       .range([0, innerHeight]);
 
     // Group data by driver
@@ -58,7 +56,7 @@ const PositionHistoryChart: React.FC<Props> = ({ data }) => {
       .selectAll("line")
       .attr("stroke", "rgba(255,255,255,0.05)")
       .attr("stroke-dasharray", "4,4");
-      
+
     g.selectAll(".domain").remove();
 
     // Axes Labels
@@ -82,17 +80,17 @@ const PositionHistoryChart: React.FC<Props> = ({ data }) => {
 
     // Lines
     const line = d3.line<any>()
-      .defined(d => d.position > 0 && d.position <= 20)
+      .defined(d => d.position > 0 && d.position <= driversInRace.length)
       .x(d => x(d.lap))
       .y(d => y(d.position))
-      .curve(d3.curveMonotoneX); // Smooth curves for "flow" feel
+      .curve(d3.curveStepAfter);
 
     // Draw driver lines
     grouped.forEach((laps, driverId) => {
       const driver = driversMap.get(driverId);
       // Sort by lap to ensure line connects correctly
       laps.sort((a, b) => a.lap - b.lap);
-      
+
       if (!driver || laps.length < 2) return;
 
       // Glow effect path (underneath)
@@ -108,7 +106,7 @@ const PositionHistoryChart: React.FC<Props> = ({ data }) => {
         .attr("class", "blur-sm");
 
       // Main path
-      const path = g.append("path")
+      g.append("path")
         .datum(laps)
         .attr("fill", "none")
         .attr("stroke", driver.color)
@@ -120,7 +118,7 @@ const PositionHistoryChart: React.FC<Props> = ({ data }) => {
 
       // Add Driver Label at the end of the line
       const lastLap = laps[laps.length - 1];
-      if (lastLap && lastLap.position <= 20) {
+      if (lastLap && lastLap.position > 0 && lastLap.position <= driversInRace.length) {
           g.append("text")
             .attr("x", x(lastLap.lap) + 8)
             .attr("y", y(lastLap.position) + 4)
@@ -147,7 +145,7 @@ const PositionHistoryChart: React.FC<Props> = ({ data }) => {
   }, [data]);
 
   return (
-    <div ref={containerRef} className="w-full glass-card rounded-3xl p-4 shadow-2xl">
+    <div ref={containerRef} className="w-full bg-[#12151c] border border-[#232832] rounded-2xl p-4 shadow-xl">
       <svg ref={svgRef} className="w-full h-[550px]"></svg>
     </div>
   );

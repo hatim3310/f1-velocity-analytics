@@ -1,139 +1,130 @@
-import React, { useEffect, useState } from 'react';
-import { getCalendar } from '../services/f1Api';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowUpRight, CalendarDays, MapPin } from 'lucide-react';
+import { getCalendar, getRaceWinner } from '../services/f1Api';
 import { Race } from '../types';
-import { MapPin, Calendar, CheckCircle, CircleDashed, ArrowRight } from 'lucide-react';
+import CircuitMap from './CircuitMap';
+import CountryFlag from './CountryFlag';
+import RacePreloader from './RacePreloader';
+import { getLocalDriverPortrait } from '../services/imageUtils';
 
 interface Props {
   onSelectRace: (race: Race) => void;
 }
 
-const RacesView: React.FC<Props> = ({ onSelectRace }) => {
-  const [races, setRaces] = useState<Race[]>([]);
-  const [loading, setLoading] = useState(true);
+const RaceCard: React.FC<{ race: Race; index: number; onSelectRace: (race: Race) => void }> = ({ race, index, onSelectRace }) => {
+  const cardRef = useRef<HTMLButtonElement>(null);
+  const [winner, setWinner] = useState<Awaited<ReturnType<typeof getRaceWinner>>>(null);
+  const [winnerLoaded, setWinnerLoaded] = useState(false);
+  const [portraitFailed, setPortraitFailed] = useState(false);
+  const [portraitFallback, setPortraitFallback] = useState<string>();
 
   useEffect(() => {
-    const fetch = async () => {
-      const data = await getCalendar();
-      setRaces(data);
-      setLoading(false);
+    if (race.status !== 'COMPLETED' || !race.sessionKey) return;
+    let cancelled = false;
+    const load = () => {
+      void getRaceWinner(race).then((result) => {
+        if (!cancelled) setWinner(result);
+      }).finally(() => { if (!cancelled) setWinnerLoaded(true); });
     };
-    fetch();
-  }, []);
+    const node = cardRef.current;
+    if (!node || !('IntersectionObserver' in window)) {
+      load();
+      return () => { cancelled = true; };
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        load();
+      }
+    }, { rootMargin: '320px' });
+    observer.observe(node);
+    return () => { cancelled = true; observer.disconnect(); };
+  }, [race]);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-96">
-      <div className="w-12 h-12 border-4 border-f1-red border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
+  const enriched = { ...race, ...winner };
+  const showPortrait = Boolean((portraitFallback || winner?.winnerImage) && !portraitFailed);
+  const status = race.status === 'LIVE' ? 'LIVE SESSION' : race.status === 'COMPLETED' ? 'CLASSIFIED' : 'UPCOMING';
+  const date = new Date(`${race.date}T12:00:00Z`).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
 
-  return (
-    <div className="animate-fadeIn pb-12">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-white font-display tracking-tight">Season Calendar</h1>
-        <p className="text-slate-400 mt-2 font-light">{new Date().getFullYear()} World Championship Schedule</p>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {races.map((race, index) => {
-          const isCompleted = race.status === 'COMPLETED';
-          return (
-            <div
-              key={race.id}
-              onClick={() => isCompleted && onSelectRace(race)}
-              className={`
-                        group relative rounded-3xl overflow-hidden border transition-all duration-500
-                        ${isCompleted
-                  ? 'bg-gradient-to-br from-white/5 to-white/0 border-white/10 hover:border-f1-red/50 hover:shadow-[0_0_30px_-5px_rgba(255,24,1,0.3)] cursor-pointer'
-                  : 'bg-white/5 border-white/5 opacity-60 grayscale hover:grayscale-0 hover:opacity-100'
-                }
-                    `}
-            >
-              {/* Status Indicator */}
-              <div className="absolute top-0 right-0 p-4 z-30">
-                {isCompleted ? (
-                  <div className="bg-black/50 backdrop-blur-md text-emerald-400 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center border border-emerald-500/30 shadow-lg">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2 animate-pulse"></div>
-                    <span className="font-mono">Complete</span>
-                  </div>
-                ) : (
-                  <div className="bg-black/50 backdrop-blur-md text-slate-400 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center border border-white/10">
-                    <CircleDashed className="w-3 h-3 mr-2" />
-                    <span className="font-mono">Upcoming</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Image / Visual Area */}
-              <div className="h-56 overflow-hidden relative bg-[#1a1a1a]">
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0e0e0e] via-transparent to-transparent z-10"></div>
-                <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-transparent z-10"></div>
-
-                {/* Circuit Image */}
-                <img
-                  src={race.image}
-                  alt={race.name}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                  className="w-full h-full object-cover transform group-hover:scale-110 group-hover:rotate-1 transition-transform duration-700 ease-out relative z-20"
-                />
-
-                {/* Fallback pattern (Technical Grid) */}
-                <div className="absolute inset-0 z-0 opacity-10"
-                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center z-0 opacity-20">
-                  <MapPin className="w-32 h-32 text-white stroke-1" />
-                </div>
-              </div>
-
-              {/* Content Area */}
-              <div className="p-6 relative">
-                {/* Round Number (Overlapping image) */}
-                <div className="absolute -top-6 left-6 z-20 bg-f1-red text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded shadow-lg font-mono">
-                  Round {String(index + 1).padStart(2, '0')}
-                </div>
-
-                <div className="mt-2">
-                  <h3 className="text-2xl font-bold text-white font-display mb-1 group-hover:text-f1-red transition-colors duration-300">
-                    {race.name.replace(' Grand Prix', '')}
-                  </h3>
-                  <div className="flex items-center text-slate-400 text-xs font-medium uppercase tracking-wider mb-6">
-                    <span className="text-f1-red mr-2">GP</span>
-                    {race.circuit}
-                  </div>
-                </div>
-
-                {/* Data Grid */}
-                <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
-                  <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Date</div>
-                    <div className="flex items-center text-slate-200 font-mono text-sm">
-                      <Calendar className="w-3.5 h-3.5 mr-2 text-f1-red" />
-                      {new Date(race.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Action</div>
-                    <div className="flex items-center text-slate-200 font-mono text-sm">
-                      {isCompleted ? (
-                        <span className="flex items-center group-hover:translate-x-1 transition-transform duration-300">
-                          View Data <ArrowRight className="w-3.5 h-3.5 ml-2 text-f1-red" />
-                        </span>
-                      ) : (
-                        <span className="opacity-50">Locked</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+  return <button
+    ref={cardRef}
+    type="button"
+    onClick={() => onSelectRace(enriched)}
+    className={`race-card group ${index === 0 ? 'race-card--featured' : ''}`}
+    style={{ animationDelay: `${Math.min(index, 10) * 65}ms`, '--team-accent': winner?.winnerTeamColor || '#e10600' } as React.CSSProperties}
+    aria-label={`Ouvrir l'analyse du ${race.name}`}
+  >
+    <div className="race-card__art">
+      <div className="race-card__topline">
+        <span className="race-card__round">ROUND {String(race.round || index + 1).padStart(2, '0')}</span>
+        <span className={`race-card__status ${race.status === 'LIVE' ? 'race-card__status--live' : ''}`}><i />{status}</span>
+      </div>
+      <div className="race-card__circuit" aria-hidden="true">
+        <CircuitMap src={race.image} name={race.name} circuit={race.circuit} allowZoom={false} className="w-full h-full" />
+      </div>
+      {showPortrait && <img
+        className="race-card__portrait"
+        src={portraitFallback || winner!.winnerImage}
+        alt={`Portrait de ${winner!.winnerName}, vainqueur du ${race.name}`}
+        loading="lazy"
+        onError={() => {
+          const fallback = getLocalDriverPortrait(winner?.winnerName);
+          if (fallback && !portraitFallback) setPortraitFallback(fallback);
+          else setPortraitFailed(true);
+        }}
+      />}
+      <span className="race-card__watermark" aria-hidden="true">{String(race.round || index + 1).padStart(2, '0')}</span>
+      <div className="race-card__location">
+        <CountryFlag country={race.country} countryCode={race.countryCode} raceName={race.name} className="w-8 h-5" />
+        <span>{race.country || race.circuit}</span>
       </div>
     </div>
-  );
+    <div className="race-card__body">
+      <div className="race-card__meta"><span><CalendarDays size={13} /> {date}</span><span><MapPin size={13} /> {race.circuit}</span></div>
+      <h3>{race.name}</h3>
+      <div className="race-card__bottom">
+        {race.status === 'COMPLETED' ? <div className="race-card__winner">
+          <span className="race-card__micro">RACE WINNER</span>
+          <strong>{winner?.winnerName || (winnerLoaded ? 'Result unavailable' : 'Loading result…')}</strong>
+          {winner?.winnerTeam && <span className="race-card__team">{winner.winnerTeam}</span>}
+        </div> : <div className="race-card__winner"><span className="race-card__micro">RACE WEEKEND</span><strong>{race.status === 'LIVE' ? 'In progress' : 'Awaiting session'}</strong></div>}
+        <span className="race-card__arrow" aria-hidden="true"><ArrowUpRight size={18} /></span>
+      </div>
+    </div>
+  </button>;
+};
+
+const RacesView: React.FC<Props> = ({ onSelectRace }) => {
+  const [races, setRaces] = useState<Race[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState<number>(2026);
+  const [loading, setLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void getCalendar(selectedSeason).then((data) => {
+      if (!cancelled) setRaces(data);
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedSeason, retryCount]);
+
+  if (loading) return <RacePreloader label="Chargement du calendrier" detail={`Sessions et circuits · saison ${selectedSeason}`} />;
+
+  return <section className="race-index pb-12">
+    <header className="race-index__header">
+      <div>
+        <div className="race-index__eyebrow"><span /> SEASON ARCHIVE / {selectedSeason}</div>
+        <h1>Grand Prix <em>Calendar</em></h1>
+        <p>Explorez les week-ends de course, leurs classements et leurs données tour par tour.</p>
+      </div>
+      <div className="race-index__seasons" role="group" aria-label="Choisir une saison">
+        {[2026, 2025, 2024].map((year) => <button key={year} type="button" onClick={() => setSelectedSeason(year)} aria-pressed={selectedSeason === year} className={selectedSeason === year ? 'is-active' : ''}>{year}</button>)}
+      </div>
+    </header>
+    {races.length ? <div className="race-index__grid">{races.map((race, index) => <RaceCard key={race.id} race={race} index={index} onSelectRace={onSelectRace} />)}</div>
+      : <div className="race-index__empty"><p>Calendrier OpenF1 indisponible pour cette saison.</p><button type="button" onClick={() => setRetryCount((count) => count + 1)}>Réessayer</button></div>}
+  </section>;
 };
 
 export default RacesView;

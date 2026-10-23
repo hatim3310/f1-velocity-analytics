@@ -1,117 +1,65 @@
-# F1 Velocity Analytics
+# Velocity Analytics
 
-## Pour les Passionnés de Formule 1
+Tableau de bord non officiel pour explorer les Grands Prix, les classements de séances et la télémétrie de course fournis par [OpenF1](https://openf1.org/docs/). Le projet utilise React, TypeScript, Vite et Tailwind CSS.
 
-Vous êtes fan de F1 et vous voulez plonger dans les données de la saison ? F1 Velocity Analytics est l'application web ultime pour analyser en profondeur les courses de Formule 1. Que vous souhaitiez revivre les courses de 2024, analyser les stratégies des pilotes ou comprendre les performances lap par lap, cette plateforme est faite pour vous.
+> **Statut de publication :** le code est placé sous licence MIT. Les médias de course présents localement dans `public/images/` sont ignorés par Git tant que leurs droits de redistribution ne sont pas établis. Consultez [l'audit de production](PRODUCTION_AUDIT.md) et [l'inventaire des médias](THIRD_PARTY_ASSETS.md) avant de déployer le site.
 
-## Ce que vous pouvez faire
+## Fonctionnalités
 
-### 📊 Données de la Saison 2024 (Disponible)
-Explorez toutes les courses de l'année dernière avec :
-- **Analyses détaillées lap par lap** pour chaque Grand Prix
-- **Évolution des positions** pendant toute la course
-- **Comparaison des rythmes** entre pilotes
-- **Ingénieur de course IA** (propulsé par Gemini 2.5) pour répondre à vos questions sur les stratégies, la dégradation des pneus, les dépassements et plus encore
+- Calendrier 2024–2026 alimenté par les séances OpenF1 lorsqu'elles sont disponibles.
+- Classements de course, essais, qualifications, sprint et qualifications sprint selon les données disponibles pour le week-end.
+- Positions reconstruites à la fin des tours horodatés, temps au tour, secteurs, relais, météo et messages de direction de course.
+- Portrait du vainqueur et tracé du circuit sur les pages de course lorsque les médias sont disponibles ; une donnée manquante reste indiquée comme indisponible.
+- Classements pilotes et constructeurs **2025 et 2026 issus de fichiers statiques**. Ce ne sont pas des classements en direct.
 
-### 🔴 Données Live (EN COURS DE DÉVELOPPEMENT)
-Bientôt, vous pourrez suivre les courses en temps réel pendant qu'elles se déroulent ! Cette fonctionnalité est actuellement en développement et vous permettra de :
-- Suivre les positions en direct
-- Analyser les stratégies pendant la course
-- Recevoir des insights IA en temps réel
+## Démarrage local
 
-Construite avec React, TypeScript et Tailwind CSS, l'application utilise l'API OpenF1 pour les données en temps réel et l'API Gemini pour des analyses avancées.
+Prérequis : Node.js 20 ou plus récent et npm. Aucune clé API n'est nécessaire pour les données historiques publiques.
 
-## Fonctionnalités Détaillées
+```bash
+npm ci
+npm run dev
+```
 
-*   **Grille de pilotes F1 2024 :** Consultez tous les pilotes de la saison avec leurs photos et logos d'équipe personnalisés
-*   **Calendrier et analyses de courses :** Explorez les courses passées de 2024 avec données détaillées lap par lap pour les positions et le rythme
-*   **Graphiques interactifs :** Visualisez les changements de position et le rythme de tous les pilotes pendant une course
-*   **Ingénieur de course IA (Gemini 2.5) :** Posez des questions intelligentes sur la stratégie de course, la dégradation des pneus, les analyses de dépassement et bien plus encore
-*   **Design responsive :** Interface optimisée pour tous les appareils (mobile, tablette, desktop)
-*   **Assets personnalisables :** Mettez à jour facilement les photos des pilotes et logos d'équipe
+Ouvrez l'adresse affichée par Vite (par défaut `http://127.0.0.1:3000/`).
 
-## Technologies Utilisées
+```bash
+npm run typecheck   # vérification TypeScript
+npm run build       # génère dist/
+npm run preview     # prévisualise le build de production
+```
 
-*   **Frontend :** React (avec Vite pour un développement rapide), TypeScript
-*   **Styling :** Tailwind CSS
-*   **API de données :** OpenF1 API (données historiques 2024 + live en développement)
-*   **Intégration IA :** Gemini API
-*   **Graphiques :** Composants React personnalisés avec bibliothèques de graphiques
-*   **Build Tool :** Vite
+Le paquet est volontairement marqué `private` : publier le code dans un dépôt public ne nécessite pas de publier un paquet npm.
 
-## Installation
+## Origine et limites des données
 
-Pour lancer le projet sur votre machine locale :
+Les résultats et la télémétrie d'une course proviennent des endpoints OpenF1 (`/sessions`, `/session_result`, `/laps`, `/position`, `/stints`, `/weather`, etc.). L'application effectue les requêtes directement depuis le navigateur avec un cache mémoire et une limitation du débit. Les réponses incomplètes peuvent produire des cellules vides ; aucune position ou durée de tour n'est inventée pour les combler.
 
-### Prérequis
+Le calendrier 2026 écarte les séances prévues en avril à Bahreïn et en Arabie saoudite : [Formula 1 a confirmé qu'elles n'auraient pas lieu](https://www.formula1.com/en/latest/article/bahrain-and-saudi-arabian-grands-prix-will-not-take-place-in-april.1hnqllVG85RSt8pbFc5Ivx.1hnqllVG85RSt8pbFc5Ivx). Le Grand Prix de Bahreïn disputé en Malaisie en octobre reste présent, conformément au [calendrier officiel](https://www.formula1.com/en/racing/2026).
 
-*   Node.js (version LTS recommandée)
-*   npm ou Yarn
+OpenF1 rend les données historiques accessibles sans authentification. Selon [sa documentation](https://openf1.org/docs/), les données pendant une séance en direct demandent un abonnement. Cette application ne contient ni identifiant ni jeton OpenF1. Si un déploiement doit fournir du direct, l'authentification et le cache partagé doivent être réalisés côté serveur ; ne placez jamais de secret dans le code Vite ou dans une variable `VITE_*`.
 
-### Étapes d'installation
+Les tableaux de championnat 2025 et 2026 sont des instantanés intégrés dans `services/season2025Data.ts` et `services/season2026Data.ts`. L'interface les désigne comme tels. Le calendrier et l'analyse détaillée exigent des séances OpenF1 identifiables ; si le calendrier ne peut être chargé, l'application signale son indisponibilité sans inventer de courses ou de résultats.
 
-1.  **Cloner le repository :**
-    ```bash
-    git clone https://github.com/your-username/f1-velocity-analytics.git
-    cd f1-velocity-analytics
-    ```
+## Organisation
 
-2.  **Installer les dépendances :**
-    ```bash
-    npm install
-    ```
+| Chemin | Rôle |
+| --- | --- |
+| `App.tsx` | Navigation et sélection de course |
+| `components/` | Pages, cartes, graphiques et chargement |
+| `services/f1Api.ts` | Requêtes OpenF1 et reconstruction des données |
+| `services/circuitData.ts` | Métadonnées et tracés de circuit |
+| `services/season*Data.ts` | Instantanés de championnat |
+| `public/images/` | Médias locaux facultatifs et ignorés par Git, droits à vérifier |
 
-3.  **Variables d'environnement :**
-    Créez un fichier `.env.local` à la racine du projet et ajoutez votre clé API Gemini :
-    ```
-    VITE_GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
-    ```
-    *(Obtenez votre clé API sur [Google AI Studio](https://aistudio.google.com/))*
+## Déploiement et contribution
 
-4.  **Lancer le serveur de développement :**
-    ```bash
-    npm run dev
-    ```
-    L'application s'ouvrira dans votre navigateur à `http://localhost:5173`
+`npm run build` produit un site statique dans `dist/`. Servez-le en HTTPS et configurez un cache ainsi qu'une surveillance des erreurs OpenF1 pour un trafic public. Une intégration continue vérifie TypeScript, le build et les dépendances de production. Le rapport [PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md) détaille les blocages de publication et les vérifications restantes.
 
-## Guide d'Utilisation
+Vite copie les fichiers présents localement dans `public/` pendant le build. Tant que les droits des médias ne sont pas vérifiés, produisez toute distribution à partir d'un clone propre du dépôt, sans les dossiers locaux de `public/images/`.
 
-### Navigation dans l'Application
+Les contributions sont bienvenues via issues et pull requests. Avant d'ouvrir une PR, lancez `npm run typecheck` et `npm run build`, décrivez la source des nouvelles données et n'ajoutez aucun média ou secret sans droit de redistribution vérifié.
 
-*   **Dashboard :** Page d'accueil avec un aperçu de la saison F1
-*   **Vue Pilotes :** Parcourez les profils détaillés de tous les pilotes F1 2024
-*   **Analyse de Course :** Sélectionnez une course terminée dans le calendrier pour plonger dans ses analyses
+## Licence et attribution
 
-### Fonctionnalités d'Analyse de Course
-
-Dans la page "Analyse de Course", vous pouvez naviguer entre les onglets :
-*   **Positions :** Graphique montrant l'évolution des positions des pilotes tout au long de la course
-*   **Pace :** Analysez les temps au tour et comparez le rythme des pilotes
-*   **Stratégie IA :** Interagissez avec l'ingénieur de course IA propulsé par Gemini. Posez vos questions ou sélectionnez parmi les suggestions pour obtenir des insights sur la stratégie de course, la gestion des pneus et plus encore
-
-## Gestion des Assets
-
-L'application permet une personnalisation facile des photos de pilotes et logos d'équipe avec des fichiers locaux.
-
-### Photos de Pilotes
-
-1.  **Placer les images :** Mettez vos fichiers images (`.png`, `.jpg`, `.webp`) dans le répertoire `public/images/drivers/`
-2.  **Convention de nommage :** Consultez le fichier `DRIVERS_2024.md` à la racine du projet pour les noms de fichiers attendus
-    *(Exemple : `public/images/drivers/verstappen.png` pour Max Verstappen)*
-
-### Logos d'Équipe
-
-1.  **Placer les images :** Mettez vos logos d'équipe dans le répertoire `public/images/teams/`
-2.  **Convention de nommage :** L'application attend des noms de fichiers basés sur le nom complet de l'équipe, en minuscules avec tirets (ex: `red-bull-racing.png` pour Red Bull Racing)
-
-## Contribution
-
-Les contributions sont les bienvenues ! Si vous souhaitez améliorer ce projet :
-1.  Forkez le repository
-2.  Créez une nouvelle branche pour votre fonctionnalité ou correction
-3.  Committez vos changements avec des messages conventionnels
-4.  Poussez votre branche et ouvrez une pull request
-
-## Licence
-
-Ce projet est open-source et disponible sous la [MIT License](LICENSE).
+Le code original du projet est sous [licence MIT](LICENSE). La police [Oxanium](public/licenses/Oxanium-OFL.txt) est distribuée sous SIL Open Font License 1.1. Les marques, photos, logos, tracés et données de tiers ne sont pas couverts par la licence MIT du code ; voir [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md). Ce projet n'est affilié ni à Formula 1 ni à OpenF1.

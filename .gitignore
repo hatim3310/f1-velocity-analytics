@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local race media require separate redistribution rights. Keep the catalogue only.
+/public/images/*
+!/public/images/README.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
