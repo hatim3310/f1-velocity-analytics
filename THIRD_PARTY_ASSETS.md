@@ -4,6 +4,8 @@ Ce document sépare la licence du code de celle des médias. La licence MIT à l
 
 Les fichiers sous `public/images/` sont conservés pour le travail local mais exclus du dépôt par `.gitignore`. Le dépôt peut être cloné et compilé sans eux ; consultez le [guide de ce dossier](public/images/README.md).
 
+Le dépôt public existant a déjà contenu des portraits, logos et polices dans ses anciens commits. Leur suppression dans la branche actuelle empêche leur inclusion dans les nouveaux clones compilés, mais ne les efface pas de l'historique Git. Si les détenteurs des droits exigent leur retrait complet, il faudra traiter séparément cet historique et les éventuelles copies déjà distribuées.
+
 ## Inventaire local au 23 octobre 2026
 
 | Emplacement | Fichiers actifs | Situation |

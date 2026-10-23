@@ -38,6 +38,8 @@ Ces contrôles montrent que le projet compile et s'affiche localement. Ils ne va
 
 Les 24 portraits locaux, 10 logos d'écuries et 24 tracés SVG encore utilisés n'ont pas de provenance ni de droit de redistribution documentés. Git les exclut du dépôt, mais ils restent présents pour la démonstration locale. Les images chargées depuis `media.formula1.com` doivent aussi être examinées avant de déployer le site. La licence MIT du code ne couvre pas ces contenus. Voir [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md). Les [règles publiques de Formula 1](https://www.formula1.com/en/information/guidelines.4EOKE9RRqevL4niTK9kWyt) encadrent notamment les polices et les images.
 
+Le dépôt GitHub public contenait déjà des médias dans des commits antérieurs. Les supprimer du dernier commit ne les retire pas de l'historique accessible ; une éventuelle purge de cet historique demanderait une opération distincte et coordonnée avec les contributeurs.
+
 Un `npm run build` lancé **dans ce dossier local** copie aussi les médias présents dans `public/images/` vers `dist/`, même s'ils sont ignorés par Git. Utilisez un clone propre sans ces médias pour préparer une distribution publique tant que leurs droits ne sont pas confirmés.
 
 **Action :** obtenir des autorisations vérifiables et ajouter les attributions requises, ou remplacer ces médias par des créations et ressources à licence compatible avant de les inclure dans une distribution ou de déployer un site qui les affiche.
