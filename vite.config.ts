@@ -1,0 +1,30 @@
+import path from 'path';
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig(() => {
+  return {
+    server: {
+      port: 3000,
+      host: '127.0.0.1',
+    },
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      }
+    },
+    build: {
+      chunkSizeWarningLimit: 800,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-d3': ['d3'],
+            'vendor-icons': ['lucide-react']
+          }
+        }
+      }
+    }
+  };
+});
