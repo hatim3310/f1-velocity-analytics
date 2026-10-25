@@ -2,7 +2,7 @@
 
 Tableau de bord non officiel pour explorer les Grands Prix, les classements de séances et la télémétrie de course fournis par [OpenF1](https://openf1.org/docs/). Le projet utilise React, TypeScript, Vite et Tailwind CSS.
 
-> **Statut de publication :** le code est placé sous licence MIT. Les médias de course présents localement dans `public/images/` sont ignorés par Git tant que leurs droits de redistribution ne sont pas établis.
+> **Statut de publication :** le code est placé sous licence MIT.
 
 ## Fonctionnalités
 
@@ -50,13 +50,13 @@ Les tableaux de championnat 2025 et 2026 sont des instantanés intégrés dans `
 | `services/f1Api.ts` | Requêtes OpenF1 et reconstruction des données |
 | `services/circuitData.ts` | Métadonnées et tracés de circuit |
 | `services/season*Data.ts` | Instantanés de championnat |
-| `public/images/` | Médias locaux facultatifs et ignorés par Git, droits à vérifier |
+| `public/images/` | Médias (tracés de circuits, pilotes, écuries) |
 
 ## Déploiement et contribution
 
 `npm run build` produit un site statique dans `dist/`. Servez-le en HTTPS et configurez un cache ainsi qu'une surveillance des erreurs OpenF1 pour un trafic public. Une intégration continue vérifie TypeScript, le build et les dépendances de production.
 
-Vite copie les fichiers présents localement dans `public/` pendant le build. Tant que les droits des médias ne sont pas vérifiés, produisez toute distribution à partir d'un clone propre du dépôt, sans les dossiers locaux de `public/images/`.
+Vite copie les fichiers présents dans `public/` pendant le build.
 
 Les contributions sont bienvenues via issues et pull requests. Avant d'ouvrir une PR, lancez `npm run typecheck` et `npm run build`, décrivez la source des nouvelles données et n'ajoutez aucun média ou secret sans droit de redistribution vérifié.
 
