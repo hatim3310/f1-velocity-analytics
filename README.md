@@ -2,7 +2,7 @@
 
 Tableau de bord non officiel pour explorer les Grands Prix, les classements de séances et la télémétrie de course fournis par [OpenF1](https://openf1.org/docs/). Le projet utilise React, TypeScript, Vite et Tailwind CSS.
 
-> **Statut de publication :** le code est placé sous licence MIT. Les médias de course présents localement dans `public/images/` sont ignorés par Git tant que leurs droits de redistribution ne sont pas établis. Consultez [l'audit de production](PRODUCTION_AUDIT.md) et [l'inventaire des médias](THIRD_PARTY_ASSETS.md) avant de déployer le site.
+> **Statut de publication :** le code est placé sous licence MIT. Les médias de course présents localement dans `public/images/` sont ignorés par Git tant que leurs droits de redistribution ne sont pas établis.
 
 ## Fonctionnalités
 
@@ -54,7 +54,7 @@ Les tableaux de championnat 2025 et 2026 sont des instantanés intégrés dans `
 
 ## Déploiement et contribution
 
-`npm run build` produit un site statique dans `dist/`. Servez-le en HTTPS et configurez un cache ainsi qu'une surveillance des erreurs OpenF1 pour un trafic public. Une intégration continue vérifie TypeScript, le build et les dépendances de production. Le rapport [PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md) détaille les blocages de publication et les vérifications restantes.
+`npm run build` produit un site statique dans `dist/`. Servez-le en HTTPS et configurez un cache ainsi qu'une surveillance des erreurs OpenF1 pour un trafic public. Une intégration continue vérifie TypeScript, le build et les dépendances de production.
 
 Vite copie les fichiers présents localement dans `public/` pendant le build. Tant que les droits des médias ne sont pas vérifiés, produisez toute distribution à partir d'un clone propre du dépôt, sans les dossiers locaux de `public/images/`.
 
@@ -62,4 +62,4 @@ Les contributions sont bienvenues via issues et pull requests. Avant d'ouvrir un
 
 ## Licence et attribution
 
-Le code original du projet est sous [licence MIT](LICENSE). La police [Oxanium](public/licenses/Oxanium-OFL.txt) est distribuée sous SIL Open Font License 1.1. Les marques, photos, logos, tracés et données de tiers ne sont pas couverts par la licence MIT du code ; voir [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md). Ce projet n'est affilié ni à Formula 1 ni à OpenF1.
+Le code original du projet est sous [licence MIT](LICENSE). La police [Oxanium](public/licenses/Oxanium-OFL.txt) est distribuée sous SIL Open Font License 1.1. Les marques, photos, logos, tracés et données de tiers ne sont pas couverts par la licence MIT du code. Ce projet n'est affilié ni à Formula 1 ni à OpenF1.
