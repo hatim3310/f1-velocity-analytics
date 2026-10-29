@@ -63,7 +63,13 @@ const RacePreloader: React.FC<Props> = ({
           </div>
           <span className="race-preloader__scan" />
         </> : <div className="race-preloader__velocity">
-          <span>V</span>
+          <img
+            src="/images/logo/logo.png"
+            alt="Velocity Analytics"
+            className="w-24 h-24 md:w-28 md:h-28 object-contain relative z-10 filter drop-shadow-[0_0_24px_rgba(255,24,1,0.5)]"
+            width="112"
+            height="112"
+          />
           <i /><i /><i />
         </div>}
         <span className="race-preloader__stage-label">{spec ? spec.circuit : 'VELOCITY ANALYTICS'}</span>

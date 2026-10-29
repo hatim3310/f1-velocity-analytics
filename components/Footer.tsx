@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Radio, Github, ExternalLink, Globe } from 'lucide-react';
+import { Radio, Github, ExternalLink, Globe } from 'lucide-react';
 
 const Footer: React.FC = () => {
   return (
@@ -10,8 +10,14 @@ const Footer: React.FC = () => {
           {/* Left: Brand Identity & Telemetry Engine Spec */}
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-1">
             <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 rounded-md bg-[#14171e] border border-[#252b36] flex items-center justify-center">
-                <Zap className="w-3.5 h-3.5 text-[#ff1801] fill-current" />
+              <div className="w-7 h-7 rounded-lg bg-[#14171e] border border-[#252b36] p-1 flex items-center justify-center">
+                <img
+                  src="/images/logo/logo.png"
+                  alt="Velocity Analytics"
+                  className="w-full h-full object-contain filter drop-shadow-[0_1px_3px_rgba(255,24,1,0.35)]"
+                  width="28"
+                  height="28"
+                />
               </div>
               <span className="font-display font-black text-sm tracking-wider text-white uppercase">
                 VELOCITY

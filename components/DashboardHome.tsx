@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy, Calendar, ArrowRight, Activity, Zap, MapPin, ChevronRight, RefreshCw } from 'lucide-react';
+import { Trophy, Calendar, ArrowRight, Activity, MapPin, ChevronRight, RefreshCw } from 'lucide-react';
 import { Race, Driver } from '../types';
 import { getCalendar, getSeasonDrivers } from '../services/f1Api';
 import Skeleton from './Skeleton';
@@ -47,17 +47,26 @@ const DashboardHome: React.FC<Props> = ({ onSelectRace, onNavigateStandings }) =
 
   return (
     <div className="animate-fadeIn space-y-8 pb-10">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <div className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1">
-            OpenF1 Race Sessions & Analytics
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2 border-b border-[#1f242c]/60">
+        <div className="flex items-start sm:items-center gap-5">
+          <div className="hidden sm:flex h-14 w-auto items-center justify-center p-2 rounded-xl bg-[#12151c] border border-[#222732] shadow-sm">
+            <img
+              src="/images/logo/logo_complet_trimmed.png"
+              alt="Velocity Analytics Logo"
+              className="h-10 w-auto object-contain"
+            />
           </div>
-          <h1 className="text-3xl md:text-5xl font-bold text-white font-display tracking-tight">
-            Mission Control
-          </h1>
-          <p className="text-neutral-400 mt-2 font-light text-sm md:text-base">
-            Race timing from OpenF1 · championship tables are bundled snapshots
-          </p>
+          <div>
+            <div className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1">
+              OpenF1 Race Sessions & Analytics
+            </div>
+            <h1 className="text-3xl md:text-5xl font-bold text-white font-display tracking-tight">
+              Mission Control
+            </h1>
+            <p className="text-neutral-400 mt-2 font-light text-sm md:text-base">
+              Race timing from OpenF1 · championship tables are bundled snapshots
+            </p>
+          </div>
         </div>
         <div className="self-start md:self-auto flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-lg">
@@ -150,7 +159,7 @@ const DashboardHome: React.FC<Props> = ({ onSelectRace, onNavigateStandings }) =
               2026 Snapshot Leader
             </span>
             <div className="p-2 bg-neutral-800 rounded-lg">
-              <Zap className="w-5 h-5 text-amber-400" />
+              <Trophy className="w-5 h-5 text-amber-400" />
             </div>
           </div>
           <div className="mt-4">

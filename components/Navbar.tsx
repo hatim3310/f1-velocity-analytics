@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Trophy, Flag, Users, Zap, Menu, X, ArrowLeft, Radio } from 'lucide-react';
+import { LayoutDashboard, Trophy, Flag, Users, Menu, X, ArrowLeft, Radio } from 'lucide-react';
 import { ViewState, Race } from '../types';
 
 interface NavbarProps {
@@ -81,8 +81,14 @@ const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-[#ff1801] rounded-lg p-1 group transition-transform active:scale-98"
               aria-label="F1 Velocity Analytics - Return to Mission Control"
             >
-              <div className="w-10 h-10 rounded-xl bg-[#14171e] border border-[#252b36] flex items-center justify-center transition-colors group-hover:border-[#ff1801]">
-                <Zap className="w-5 h-5 text-[#ff1801] fill-current" />
+              <div className="w-10 h-10 rounded-xl bg-[#14171e] border border-[#252b36] p-1.5 flex items-center justify-center transition-all group-hover:border-[#ff1801] group-hover:shadow-[0_0_15px_rgba(255,24,1,0.25)]">
+                <img
+                  src="/images/logo/logo.png"
+                  alt="Velocity Analytics"
+                  className="w-full h-full object-contain filter drop-shadow-[0_1px_4px_rgba(255,24,1,0.4)]"
+                  width="36"
+                  height="36"
+                />
               </div>
               <div className="flex flex-col">
                 <span className="font-display font-black text-lg md:text-xl tracking-wider text-white uppercase leading-none">
