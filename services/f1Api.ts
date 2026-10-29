@@ -39,7 +39,9 @@ const BASE_URL = 'https://api.openf1.org/v1';
 // https://www.formula1.com/en/latest/article/bahrain-and-saudi-arabian-grands-prix-will-not-take-place-in-april.1hnqllVG85RSt8pbFc5Ivx.1hnqllVG85RSt8pbFc5Ivx
 const CANCELLED_2026_RACE_DATES = new Set(['2026-04-12', '2026-04-19']);
 
-// Cache with TTL (Time To Live) support for live data freshness
+export type RequestPriority = 'high' | 'normal' | 'low';
+
+// Multi-tier cache (In-Memory RAM + LocalStorage Persistent) with TTL support
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -47,54 +49,144 @@ interface CacheEntry<T> {
 
 const cache = new Map<string, CacheEntry<unknown>>();
 const pending = new Map<string, Promise<unknown>>();
-let requestQueue: Promise<void> = Promise.resolve();
-let lastRequestAt = 0;
-const requestTimes: number[] = [];
 
-const reserveRequest = (): Promise<void> => {
-  const turn = requestQueue.then(async () => {
+const STORAGE_PREFIX = 'f1_v2_';
+
+function getStorageCache<T>(key: string, ttlMs: number): T | null {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as { data: T; timestamp: number };
+    if (Date.now() - entry.timestamp < ttlMs) {
+      return entry.data;
+    }
+    localStorage.removeItem(STORAGE_PREFIX + key);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setStorageCache<T>(key: string, data: T): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const json = JSON.stringify({ data, timestamp: Date.now() });
+    // Guard against excessively large payloads (> 350KB) in localStorage
+    if (json.length < 350000) {
+      localStorage.setItem(STORAGE_PREFIX + key, json);
+    }
+  } catch {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) keysToRemove.push(k);
+      }
+      keysToRemove.slice(0, Math.ceil(keysToRemove.length / 2)).forEach((k) => localStorage.removeItem(k));
+    } catch {}
+  }
+}
+
+// Priority Queue Rate Limiter (Max ~3 requests/second, matching OpenF1's limit)
+interface QueuedRequest {
+  resolve: () => void;
+  priority: RequestPriority;
+  addedAt: number;
+}
+
+const queue: QueuedRequest[] = [];
+let isProcessingQueue = false;
+let lastDispatchAt = 0;
+const MIN_INTERVAL_MS = 340; // 3 requests/sec max pacing
+
+const processQueue = async () => {
+  if (isProcessingQueue) return;
+  isProcessingQueue = true;
+
+  while (queue.length > 0) {
+    // Sort so high priority is executed first, then normal, then low (FIFO within priority)
+    queue.sort((a, b) => {
+      const pOrder = { high: 0, normal: 1, low: 2 };
+      if (pOrder[a.priority] !== pOrder[b.priority]) {
+        return pOrder[a.priority] - pOrder[b.priority];
+      }
+      return a.addedAt - b.addedAt;
+    });
+
+    const current = queue.shift();
+    if (!current) break;
+
     const now = Date.now();
-    while (requestTimes.length && requestTimes[0] <= now - 60000) requestTimes.shift();
-    const perSecond = Math.max(0, lastRequestAt + 400 - now);
-    const perMinute = requestTimes.length >= 28 ? Math.max(0, requestTimes[0] + 60000 - now) : 0;
-    const delay = Math.max(perSecond, perMinute);
-    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-    const started = Date.now();
-    while (requestTimes.length && requestTimes[0] <= started - 60000) requestTimes.shift();
-    lastRequestAt = started;
-    requestTimes.push(started);
-  });
-  requestQueue = turn.catch(() => {});
-  return turn;
+    const waitTime = Math.max(0, lastDispatchAt + MIN_INTERVAL_MS - now);
+    if (waitTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+    lastDispatchAt = Date.now();
+    current.resolve();
+  }
+
+  isProcessingQueue = false;
 };
 
-export async function fetchWithCache<T>(url: string, ttlMs: number = 60000): Promise<T> {
-  const now = Date.now();
-  const cached = cache.get(url);
+const reserveRequest = (priority: RequestPriority = 'normal'): Promise<void> => {
+  return new Promise((resolve) => {
+    queue.push({ resolve, priority, addedAt: Date.now() });
+    void processQueue();
+  });
+};
 
-  if (cached && now - cached.timestamp < ttlMs) {
-    return cached.data as T;
+export async function fetchWithCache<T>(
+  url: string,
+  ttlMs: number = 60000,
+  priority: RequestPriority = 'normal',
+  forceRefresh: boolean = false
+): Promise<T> {
+  const now = Date.now();
+
+  // 1. Check in-memory RAM cache
+  if (!forceRefresh) {
+    const memCached = cache.get(url);
+    if (memCached && now - memCached.timestamp < ttlMs) {
+      return memCached.data as T;
+    }
+
+    // 2. Check localStorage persistent cache
+    const stored = getStorageCache<T>(url, ttlMs);
+    if (stored !== null) {
+      cache.set(url, { data: stored, timestamp: now });
+      return stored;
+    }
   }
+
+  // 3. Deduplicate in-flight requests for the exact same URL
   if (pending.has(url)) return pending.get(url) as Promise<T>;
+
   const request = (async () => {
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
-        await reserveRequest();
+        await reserveRequest(priority);
         const response = await fetch(url);
         if (response.status === 429 && attempt < 2) {
           const retryAfter = Number(response.headers.get('Retry-After'));
-          await new Promise((resolve) => setTimeout(resolve,
-            Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : (attempt + 1) * 2000));
+          const delay = Number.isFinite(retryAfter) && retryAfter > 0
+            ? (retryAfter * 1000 + 200)
+            : (attempt + 1) * 1200;
+          await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
         if (!response.ok) throw new Error(`OpenF1 API returned status ${response.status}`);
         const data = (await response.json()) as T;
         cache.set(url, { data, timestamp: Date.now() });
+        setStorageCache(url, data);
         return data;
       }
       throw new Error('OpenF1 rate limit exceeded');
     } catch (error) {
-      if (cached) return cached.data as T;
+      // Fallback to stale cache if available when network fails
+      const stale = cache.get(url)?.data || getStorageCache<T>(url, 30 * 86400000);
+      if (stale) return stale as T;
+
       if (!(error instanceof Error && error.message.includes('status 404'))) {
         console.warn(`Fetch error for ${url}:`, error);
       }
@@ -175,10 +267,12 @@ export const getCircuitImage = (location: string, circuitShortName?: string): st
 // 1. ENDPOINT: /sessions
 export const getCalendar = async (year: number = 2026): Promise<Race[]> => {
   const url = `${BASE_URL}/sessions?year=${year}&session_type=Race`;
+  const isPastYear = year < 2026;
+  const ttl = isPastYear ? 7 * 86400000 : 2 * 3600000;
 
   try {
     const [sessions, meetings] = await Promise.all([
-      fetchWithCache<OpenF1Session[]>(url, 300000),
+      fetchWithCache<OpenF1Session[]>(url, ttl, 'high'),
       getMeetings(year)
     ]);
     const meetingMap = new Map(meetings.map((meeting) => [meeting.meeting_key, meeting]));
@@ -216,25 +310,43 @@ export const getCalendar = async (year: number = 2026): Promise<Race[]> => {
   }
 };
 
-export const getRaceWinner = async (race: Race): Promise<Pick<Race, 'winnerId' | 'winnerName' | 'winnerImage' | 'winnerTeam' | 'winnerTeamColor'> | null> => {
+export const getRaceWinner = async (
+  race: Race,
+  priority: RequestPriority = 'low'
+): Promise<Pick<Race, 'winnerId' | 'winnerName' | 'winnerImage' | 'winnerTeam' | 'winnerTeamColor'> | null> => {
   if (race.status !== 'COMPLETED' || !race.sessionKey) return null;
   const key = race.sessionKey;
+  const storageKey = `winner_result_${key}`;
+
+  // Check persistent storage first (7-day TTL for completed race winner)
+  const cachedWinner = getStorageCache<Pick<Race, 'winnerId' | 'winnerName' | 'winnerImage' | 'winnerTeam' | 'winnerTeamColor'>>(storageKey, 7 * 86400000);
+  if (cachedWinner) return cachedWinner;
+
   const results = await fetchWithCache<OpenF1SessionResult[]>(
-    `${BASE_URL}/session_result?session_key=${key}&position=1`, 300000
+    `${BASE_URL}/session_result?session_key=${key}&position=1`,
+    7 * 86400000,
+    priority
   ).catch(() => []);
   const winner = results.find((entry) => entry.position === 1 && !entry.dsq);
   if (!winner) return null;
+
   const drivers = await fetchWithCache<OpenF1Driver[]>(
-    `${BASE_URL}/drivers?session_key=${key}&driver_number=${winner.driver_number}`, 300000
+    `${BASE_URL}/drivers?session_key=${key}&driver_number=${winner.driver_number}`,
+    7 * 86400000,
+    priority
   ).catch(() => []);
   const driver = drivers.find((entry) => entry.driver_number === winner.driver_number);
-  return {
+
+  const winnerData = {
     winnerId: String(winner.driver_number),
     winnerName: driver?.full_name || `Driver #${winner.driver_number}`,
     winnerImage: getDriverPortrait(driver?.full_name, driver?.headshot_url, Number(race.date.slice(0, 4)), driver?.team_name),
     winnerTeam: driver?.team_name || undefined,
     winnerTeamColor: driver?.team_colour ? `#${driver.team_colour}` : undefined
   };
+
+  setStorageCache(storageKey, winnerData);
+  return winnerData;
 };
 
 // 2. ENDPOINT: /drivers
@@ -298,14 +410,18 @@ const tyreCode = (compound: string): LapData['tyre'] => ({
 export const buildLapHistory = (
   laps: OpenF1Lap[], positions: OpenF1Position[], stints: OpenF1Stint[]
 ): LapData[] => {
-  const byDriver = new Map<number, OpenF1Position[]>();
-  positions.filter((p) => p.position > 0 && Number.isFinite(Date.parse(p.date)))
+  const byDriver = new Map<number, { pos: number; time: number }[]>();
+  positions.filter((p) => p.position > 0 && typeof p.date === 'string')
     .forEach((p) => {
-      const events = byDriver.get(p.driver_number) || [];
-      events.push(p);
-      byDriver.set(p.driver_number, events);
+      const time = Date.parse(p.date);
+      if (Number.isFinite(time)) {
+        const events = byDriver.get(p.driver_number) || [];
+        events.push({ pos: p.position, time });
+        byDriver.set(p.driver_number, events);
+      }
     });
-  byDriver.forEach((events) => events.sort((a, b) => Date.parse(a.date) - Date.parse(b.date)));
+  byDriver.forEach((events) => events.sort((a, b) => a.time - b.time));
+
   const stintsByDriver = new Map<number, OpenF1Stint[]>();
   stints.forEach((stint) => {
     const entries = stintsByDriver.get(stint.driver_number) || [];
@@ -322,7 +438,7 @@ export const buildLapHistory = (
     let right = events.length;
     while (left < right) {
       const middle = (left + right) >> 1;
-      if (Date.parse(events[middle].date) <= finish) left = middle + 1;
+      if (events[middle].time <= finish) left = middle + 1;
       else right = middle;
     }
     const stint = stintsByDriver.get(lap.driver_number)?.find(
@@ -331,7 +447,7 @@ export const buildLapHistory = (
     return {
       lap: lap.lap_number,
       driverId: String(lap.driver_number),
-      position: left ? events[left - 1].position : 0,
+      position: left ? events[left - 1].pos : 0,
       time: typeof lap.lap_duration === 'number' && lap.lap_duration > 0 ? lap.lap_duration : 0,
       tyre: stint ? tyreCode(stint.compound) : null,
       sectors: [lap.duration_sector_1 ?? null, lap.duration_sector_2 ?? null, lap.duration_sector_3 ?? null] as LapData['sectors'],
@@ -341,11 +457,12 @@ export const buildLapHistory = (
   }).sort((a, b) => a.lap - b.lap || a.position - b.position);
 };
 
-export const getRaceDetails = async (sessionKey: string, stints: OpenF1Stint[] = []) => {
+export const getRaceDetails = async (sessionKey: string, stints: OpenF1Stint[] = [], isCompleted = true) => {
+  const ttl = isCompleted ? 86400000 : 30000;
   const [driversData, lapsData, positionsData] = await Promise.all([
-    fetchWithCache<OpenF1Driver[]>(`${BASE_URL}/drivers?session_key=${sessionKey}`, 300000).catch(() => []),
-    fetchWithCache<OpenF1Lap[]>(`${BASE_URL}/laps?session_key=${sessionKey}`, 30000),
-    getRacePositions(sessionKey)
+    fetchWithCache<OpenF1Driver[]>(`${BASE_URL}/drivers?session_key=${sessionKey}`, ttl, 'high').catch(() => []),
+    fetchWithCache<OpenF1Lap[]>(`${BASE_URL}/laps?session_key=${sessionKey}`, ttl, 'high'),
+    getRacePositions(sessionKey, isCompleted)
   ]);
   return {
     drivers: driversData.map(mapDriver),
@@ -356,10 +473,11 @@ export const getRaceDetails = async (sessionKey: string, stints: OpenF1Stint[] =
 };
 
 // 4. ENDPOINT: /intervals
-export const getRaceIntervals = async (sessionKey: string): Promise<OpenF1Interval[]> => {
+export const getRaceIntervals = async (sessionKey: string, isCompleted = true): Promise<OpenF1Interval[]> => {
   const url = `${BASE_URL}/intervals?session_key=${sessionKey}`;
+  const ttl = isCompleted ? 86400000 : 10000;
   try {
-    return await fetchWithCache<OpenF1Interval[]>(url, 10000);
+    return await fetchWithCache<OpenF1Interval[]>(url, ttl, 'high');
   } catch (e) {
     console.warn(`Failed to fetch intervals for session ${sessionKey}`, e);
     return [];
@@ -367,10 +485,11 @@ export const getRaceIntervals = async (sessionKey: string): Promise<OpenF1Interv
 };
 
 // 5. ENDPOINT: /pit
-export const getRacePits = async (sessionKey: string): Promise<OpenF1Pit[]> => {
+export const getRacePits = async (sessionKey: string, isCompleted = true): Promise<OpenF1Pit[]> => {
   const url = `${BASE_URL}/pit?session_key=${sessionKey}`;
+  const ttl = isCompleted ? 86400000 : 15000;
   try {
-    return await fetchWithCache<OpenF1Pit[]>(url, 15000);
+    return await fetchWithCache<OpenF1Pit[]>(url, ttl, 'high');
   } catch (e) {
     console.warn(`Failed to fetch pit stops for session ${sessionKey}`, e);
     return [];
@@ -378,10 +497,11 @@ export const getRacePits = async (sessionKey: string): Promise<OpenF1Pit[]> => {
 };
 
 // 6. ENDPOINT: /stints
-export const getRaceStints = async (sessionKey: string): Promise<OpenF1Stint[]> => {
+export const getRaceStints = async (sessionKey: string, isCompleted = true): Promise<OpenF1Stint[]> => {
   const url = `${BASE_URL}/stints?session_key=${sessionKey}`;
+  const ttl = isCompleted ? 86400000 : 15000;
   try {
-    return await fetchWithCache<OpenF1Stint[]>(url, 15000);
+    return await fetchWithCache<OpenF1Stint[]>(url, ttl, 'high');
   } catch (e) {
     console.warn(`Failed to fetch tyre stints for session ${sessionKey}`, e);
     return [];
@@ -389,10 +509,11 @@ export const getRaceStints = async (sessionKey: string): Promise<OpenF1Stint[]> 
 };
 
 // 7. ENDPOINT: /weather
-export const getRaceWeather = async (sessionKey: string): Promise<OpenF1Weather[]> => {
+export const getRaceWeather = async (sessionKey: string, isCompleted = true): Promise<OpenF1Weather[]> => {
   const url = `${BASE_URL}/weather?session_key=${sessionKey}`;
+  const ttl = isCompleted ? 86400000 : 15000;
   try {
-    return await fetchWithCache<OpenF1Weather[]>(url, 15000);
+    return await fetchWithCache<OpenF1Weather[]>(url, ttl, 'high');
   } catch (e) {
     console.warn(`Failed to fetch weather for session ${sessionKey}`, e);
     return [];
@@ -400,10 +521,11 @@ export const getRaceWeather = async (sessionKey: string): Promise<OpenF1Weather[
 };
 
 // 8. ENDPOINT: /race_control
-export const getRaceControlMessages = async (sessionKey: string): Promise<OpenF1RaceControl[]> => {
+export const getRaceControlMessages = async (sessionKey: string, isCompleted = true): Promise<OpenF1RaceControl[]> => {
   const url = `${BASE_URL}/race_control?session_key=${sessionKey}`;
+  const ttl = isCompleted ? 86400000 : 10000;
   try {
-    return await fetchWithCache<OpenF1RaceControl[]>(url, 10000);
+    return await fetchWithCache<OpenF1RaceControl[]>(url, ttl, 'high');
   } catch (e) {
     console.warn(`Failed to fetch race control messages for session ${sessionKey}`, e);
     return [];
@@ -411,10 +533,11 @@ export const getRaceControlMessages = async (sessionKey: string): Promise<OpenF1
 };
 
 // 9. ENDPOINT: /position
-export const getRacePositions = async (sessionKey: string): Promise<OpenF1Position[]> => {
+export const getRacePositions = async (sessionKey: string, isCompleted = true): Promise<OpenF1Position[]> => {
   const url = `${BASE_URL}/position?session_key=${sessionKey}`;
+  const ttl = isCompleted ? 86400000 : 10000;
   try {
-    return await fetchWithCache<OpenF1Position[]>(url, 10000);
+    return await fetchWithCache<OpenF1Position[]>(url, ttl, 'high');
   } catch (e) {
     console.warn(`Failed to fetch positions for session ${sessionKey}`, e);
     return [];
@@ -424,8 +547,10 @@ export const getRacePositions = async (sessionKey: string): Promise<OpenF1Positi
 // 10. ENDPOINT: /meetings
 export const getMeetings = async (year: number = 2026): Promise<OpenF1Meeting[]> => {
   const url = `${BASE_URL}/meetings?year=${year}`;
+  const isPastYear = year < 2026;
+  const ttl = isPastYear ? 7 * 86400000 : 2 * 3600000;
   try {
-    return await fetchWithCache<OpenF1Meeting[]>(url, 300000);
+    return await fetchWithCache<OpenF1Meeting[]>(url, ttl, 'high');
   } catch (e) {
     console.warn(`Failed to fetch meetings for year ${year}`, e);
     return [];
@@ -444,7 +569,7 @@ export const getCarTelemetry = async (
   if (dateStart) url += `&date>=${encodeURIComponent(new Date(dateStart).toISOString())}`;
   if (dateEnd) url += `&date<${encodeURIComponent(new Date(dateEnd).toISOString())}`;
   try {
-    return await fetchWithCache<OpenF1CarData[]>(url, 10000);
+    return await fetchWithCache<OpenF1CarData[]>(url, 15000, 'high');
   } catch (e) {
     console.warn(`Failed to fetch car telemetry for driver ${driverNumber}`, e);
     return [];
@@ -499,17 +624,32 @@ const resultStatus = (result: OpenF1SessionResult, isRace: boolean): string => {
 const classifySession = (
   session: OpenF1Session,
   raw: OpenF1SessionResult[],
-  drivers: OpenF1Driver[],
+  drivers: (OpenF1Driver | Driver)[],
   grid: OpenF1StartingGrid[],
   laps: LapData[],
   raceName: string
 ): SessionClassification => {
-  const driverMap = new Map(drivers.map((driver) => [driver.driver_number, driver]));
+  const driverMap = new Map<number, { name: string; team: string }>();
+  drivers.forEach((d) => {
+    if ('driver_number' in d && typeof d.driver_number === 'number') {
+      driverMap.set(d.driver_number, {
+        name: d.full_name || `Driver #${d.driver_number}`,
+        team: d.team_name || '—'
+      });
+    } else if ('id' in d) {
+      const num = Number(d.id);
+      if (Number.isFinite(num)) {
+        driverMap.set(num, { name: d.name, team: d.team });
+      }
+    }
+  });
+
   const gridMap = new Map(grid.map((entry) => [entry.driver_number, entry.position]));
   const isRace = session.session_name === 'Race';
   const isRaceFormat = isRace || session.session_name === 'Sprint';
   const validRaceLaps = isRace ? laps.filter((lap) => lap.time > 0 && !lap.pitOut) : [];
   const fastest = validRaceLaps.length ? Math.min(...validRaceLaps.map((lap) => lap.time)) : null;
+
   return {
     key: session.session_key,
     name: session.session_name || session.session_type,
@@ -526,8 +666,8 @@ const classifySession = (
         position: result.position || 99,
         positionText: result.dsq ? 'DSQ' : result.dns ? 'DNS' : result.position ? String(result.position) : result.dnf ? 'DNF' : 'NC',
         driverNumber: String(result.driver_number),
-        driverName: driver?.full_name || `Driver #${result.driver_number}`,
-        team: driver?.team_name || '—',
+        driverName: driver?.name || `Driver #${result.driver_number}`,
+        team: driver?.team || '—',
         grid: isRace ? gridMap.get(result.driver_number) ?? null : null,
         laps: result.number_of_laps ?? 0,
         timeRetired: resultStatus(result, isRaceFormat),
@@ -550,11 +690,14 @@ export const getFullRaceAnalytics = async (
   onProgress?: (phase: RaceLoadPhase) => void
 ): Promise<RaceAnalysisData> => {
   onProgress?.('session');
+  const isCompleted = race.status === 'COMPLETED';
+  const ttl = isCompleted ? 86400000 : 30000;
   const year = Number(race.date.slice(0, 4));
   let sessionKey = race.sessionKey;
   let meetingKey = race.meetingKey;
+
   if (!sessionKey || !meetingKey) {
-    const sessions = await fetchWithCache<OpenF1Session[]>(`${BASE_URL}/sessions?year=${year}`, 300000).catch(() => []);
+    const sessions = await fetchWithCache<OpenF1Session[]>(`${BASE_URL}/sessions?year=${year}`, ttl, 'high').catch(() => []);
     const matching = sessions.filter((session) => session.session_name === 'Race')
       .sort((a, b) => Math.abs(Date.parse(a.date_start) - Date.parse(race.date)) - Math.abs(Date.parse(b.date_start) - Date.parse(race.date)))[0];
     if (matching && Math.abs(Date.parse(matching.date_start) - Date.parse(race.date)) < 3 * 86400000) {
@@ -569,35 +712,70 @@ export const getFullRaceAnalytics = async (
   const key = String(sessionKey);
   onProgress?.('context');
   const [stints, weather, raceControl, meetingSessions, grid] = await Promise.all([
-    getRaceStints(key), getRaceWeather(key),
-    getRaceControlMessages(key),
-    fetchWithCache<OpenF1Session[]>(`${BASE_URL}/sessions?meeting_key=${meetingKey}`, 300000).catch(() => []),
-    fetchWithCache<OpenF1StartingGrid[]>(`${BASE_URL}/starting_grid?session_key=${key}`, 60000).catch(() => [])
+    getRaceStints(key, isCompleted),
+    getRaceWeather(key, isCompleted),
+    getRaceControlMessages(key, isCompleted),
+    fetchWithCache<OpenF1Session[]>(`${BASE_URL}/sessions?meeting_key=${meetingKey}`, ttl, 'high').catch(() => []),
+    fetchWithCache<OpenF1StartingGrid[]>(`${BASE_URL}/starting_grid?session_key=${key}`, ttl, 'high').catch(() => [])
   ]);
+
   onProgress?.('laps');
-  const details = await getRaceDetails(key, stints).catch(() => ({ drivers: [] as Driver[], history: [] as LapData[], totalLaps: 0 }));
+  const details = await getRaceDetails(key, stints, isCompleted).catch(() => ({ drivers: [] as Driver[], history: [] as LapData[], totalLaps: 0 }));
+
   onProgress?.('results');
-  const sessions = await Promise.all(meetingSessions.filter(isClassificationSession)
-    .sort((a, b) => Date.parse(a.date_start) - Date.parse(b.date_start))
-    .map(async (session) => {
-      const [results, sessionDrivers] = await Promise.all([
-        fetchWithCache<OpenF1SessionResult[]>(`${BASE_URL}/session_result?session_key=${session.session_key}`, 60000).catch(() => []),
-        fetchWithCache<OpenF1Driver[]>(`${BASE_URL}/drivers?session_key=${session.session_key}`, 300000).catch(() => [])
-      ]);
-      return classifySession(session, results, sessionDrivers, session.session_key === sessionKey ? grid : [],
-        session.session_key === sessionKey ? details.history : [], race.name);
-    }));
+  const classificationSessions = meetingSessions.filter(isClassificationSession)
+    .sort((a, b) => Date.parse(a.date_start) - Date.parse(b.date_start));
+
+  const sessions = await Promise.all(classificationSessions.map(async (session) => {
+    const isCurrentRace = session.session_key === sessionKey;
+    const [results, sessionDrivers] = await Promise.all([
+      fetchWithCache<OpenF1SessionResult[]>(
+        `${BASE_URL}/session_result?session_key=${session.session_key}`,
+        ttl,
+        'high'
+      ).catch(() => []),
+      isCurrentRace && details.drivers.length > 0
+        ? Promise.resolve([])
+        : fetchWithCache<OpenF1Driver[]>(
+            `${BASE_URL}/drivers?session_key=${session.session_key}`,
+            ttl,
+            'high'
+          ).catch(() => [])
+    ]);
+
+    const effectiveDrivers = (sessionDrivers.length > 0 ? sessionDrivers : details.drivers) as (OpenF1Driver | Driver)[];
+    return classifySession(
+      session,
+      results,
+      effectiveDrivers,
+      isCurrentRace ? grid : [],
+      isCurrentRace ? details.history : [],
+      race.name
+    );
+  }));
+
   const results = sessions.find((session) => session.key === sessionKey)?.results || [];
   const resultDrivers = results.map((result): Driver => ({
-    id: result.driverNumber, code: result.driverName.split(' ').at(-1)?.slice(0, 3).toUpperCase() || result.driverNumber,
-    name: result.driverName, team: result.team, color: TEAMS[result.team] || '#ffffff',
+    id: result.driverNumber,
+    code: result.driverName.split(' ').at(-1)?.slice(0, 3).toUpperCase() || result.driverNumber,
+    name: result.driverName,
+    team: result.team,
+    color: TEAMS[result.team] || '#ffffff',
     teamLogo: TEAM_ASSETS[result.team]?.logo
   }));
   const driverMap = new Map(resultDrivers.map((driver) => [driver.id, driver]));
   details.drivers.forEach((driver) => driverMap.set(driver.id, driver));
+
   return {
-    race, drivers: [...driverMap.values()], history: details.history, totalLaps: details.totalLaps,
-    stints, weather, raceControl, sessions, results,
+    race,
+    drivers: [...driverMap.values()],
+    history: details.history,
+    totalLaps: details.totalLaps,
+    stints,
+    weather,
+    raceControl,
+    sessions,
+    results,
     sourceError: !details.history.length && !results.length ? 'Données OpenF1 indisponibles pour cette course.' : undefined
   };
 };

@@ -22,7 +22,7 @@ const RaceCard: React.FC<{ race: Race; index: number; onSelectRace: (race: Race)
     if (race.status !== 'COMPLETED' || !race.sessionKey) return;
     let cancelled = false;
     const load = () => {
-      void getRaceWinner(race).then((result) => {
+      void getRaceWinner(race, 'low').then((result) => {
         if (!cancelled) setWinner(result);
       }).finally(() => { if (!cancelled) setWinnerLoaded(true); });
     };
@@ -36,7 +36,7 @@ const RaceCard: React.FC<{ race: Race; index: number; onSelectRace: (race: Race)
         observer.disconnect();
         load();
       }
-    }, { rootMargin: '320px' });
+    }, { rootMargin: '40px' });
     observer.observe(node);
     return () => { cancelled = true; observer.disconnect(); };
   }, [race]);
