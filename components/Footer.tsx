@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Radio } from 'lucide-react';
+import { Zap, Radio, Github, ExternalLink, Globe } from 'lucide-react';
 
 const Footer: React.FC = () => {
   return (
@@ -48,16 +48,49 @@ const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: Engineering Signature */}
-          <div className="flex flex-col items-center lg:items-end text-center lg:text-right gap-1 font-mono text-xs">
-            <div className="flex items-center gap-2">
+          {/* Right: Engineering Signature & External Links */}
+          <div className="flex flex-col items-center lg:items-end text-center lg:text-right gap-1.5 font-mono text-xs">
+            <div className="flex flex-wrap items-center justify-center lg:justify-end gap-1.5">
               <span className="text-neutral-400">Engineered by</span>
-              <span className="text-white font-display font-bold tracking-wide uppercase text-sm">
-                LAAMARTI HATIM
-              </span>
+              <a
+                href="https://laamarti.space"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-1 text-white hover:text-[#ff1801] font-display font-bold tracking-wide uppercase text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#ff1801] focus-visible:outline-offset-2 rounded"
+                aria-label="Portfolio de LAAMARTI HATIM (laamarti.space)"
+              >
+                <span>LAAMARTI HATIM</span>
+                <span className="font-mono text-[11px] font-normal lowercase tracking-normal text-neutral-400 group-hover:text-neutral-200 transition-colors">
+                  (laamarti.space)
+                </span>
+                <ExternalLink className="w-3 h-3 text-neutral-500 group-hover:text-[#ff1801] transition-colors" />
+              </a>
             </div>
-            <div className="text-neutral-400 text-[11px]">
-              Velocity Telemetry Engine • High Performance Spec
+
+            <div className="flex flex-wrap items-center justify-center lg:justify-end gap-2.5 text-neutral-400 text-[11px]">
+              <span>Velocity Telemetry Engine</span>
+              <span className="text-neutral-700">•</span>
+              <a
+                href="https://laamarti.space"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-neutral-300 hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-[#ff1801] rounded"
+                aria-label="Portfolio (laamarti.space)"
+              >
+                <Globe className="w-3 h-3 text-neutral-400" />
+                <span>laamarti.space</span>
+              </a>
+              <span className="text-neutral-700">•</span>
+              <a
+                href="https://github.com/hatim3310"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-neutral-300 hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-[#ff1801] rounded"
+                aria-label="GitHub de LAAMARTI HATIM"
+              >
+                <Github className="w-3 h-3 text-neutral-400" />
+                <span>GitHub</span>
+              </a>
             </div>
           </div>
 
